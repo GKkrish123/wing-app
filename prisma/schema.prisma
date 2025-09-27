@@ -1,0 +1,343 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                     String                        @id @default(uuid())
+  name                   String
+  profilePicture         String?
+  mobileNumber           String?                       @unique
+  isVerified             Boolean                       @default(false)
+  primaryLocation        String?
+  isBanned               Boolean                       @default(false)
+  banReason              String?
+  createdAt              DateTime                      @default(now())
+  updatedAt              DateTime                      @updatedAt
+  hasCompletedOnboarding Boolean                       @default(false)
+  pushToken              String?
+  currentRole            String?
+  isHelper               Boolean                       @default(false)
+  isSeeker               Boolean                       @default(false)
+  bargainsCreated        Bargain[]                     @relation("bargainInitiated")
+  bargainsInitiated      BargainOffer[]                @relation("bargainOffered")
+  helperConversations    Conversation[]                @relation("helperConversation")
+  seekerConversations    Conversation[]                @relation("seekerConversation")
+  locationSharing        ConversationLocationSharing[]
+  helperProfile          HelperProfile?
+  messagesSent           Message[]
+  ratingsGiven           Rating[]                      @relation("ratingGiven")
+  ratingsReceived        Rating[]                      @relation("ratingReceived")
+  requestsAssigned       Request[]                     @relation("requestsAssigned")
+  requestsMade           Request[]                     @relation("requestsMade")
+  interestsShown         RequestInterest[]
+  rejectionsReceived     RequestRejection[]            @relation("rejectionReceived")
+  rejectionsGiven        RequestRejection[]            @relation("rejectionGiven")
+  seekerProfile          SeekerProfile?
+  helperTransactions     ServiceTransaction[]          @relation("helperTransactions")
+  seekerTransactions     ServiceTransaction[]          @relation("seekerTransactions")
+  location               UserLocation?
+}
+
+model Request {
+  id             String             @id @default(uuid())
+  title          String?
+  description    String?
+  seekerId       String
+  helperId       String?
+  status         RequestStatus      @default(OPEN)
+  latitude       Float
+  longitude      Float
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  conversationId String?            @unique
+  closedAt       DateTime?
+  closedReason   String?
+  conversation   Conversation?
+  helper         User?              @relation("requestsAssigned", fields: [helperId], references: [id])
+  seeker         User               @relation("requestsMade", fields: [seekerId], references: [id])
+  interests      RequestInterest[]
+  rejections     RequestRejection[]
+
+  @@index([seekerId])
+  @@index([helperId])
+  @@index([status])
+}
+
+model Conversation {
+  id              String                        @id @default(uuid())
+  requestId       String                        @unique
+  seekerId        String
+  helperId        String
+  createdAt       DateTime                      @default(now())
+  updatedAt       DateTime                      @updatedAt
+  bargains        Bargain[]
+  helper          User                          @relation("helperConversation", fields: [helperId], references: [id])
+  request         Request                       @relation(fields: [requestId], references: [id])
+  seeker          User                          @relation("seekerConversation", fields: [seekerId], references: [id])
+  locationSharing ConversationLocationSharing[]
+  messages        Message[]
+  transaction     ServiceTransaction?
+
+  @@index([requestId])
+  @@index([seekerId])
+  @@index([helperId])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  senderId       String
+  content        String
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  sender         User         @relation(fields: [senderId], references: [id])
+
+  @@index([conversationId])
+  @@index([senderId])
+}
+
+model RequestInterest {
+  id        String         @id @default(uuid())
+  requestId String
+  helperId  String
+  createdAt DateTime       @default(now())
+  message   String?
+  status    InterestStatus @default(PENDING)
+  updatedAt DateTime       @default(now()) @updatedAt
+  helper    User           @relation(fields: [helperId], references: [id])
+  request   Request        @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, helperId])
+  @@index([requestId])
+  @@index([helperId])
+  @@index([status])
+}
+
+model RequestRejection {
+  id        String   @id @default(uuid())
+  requestId String
+  helperId  String
+  seekerId  String
+  reason    String
+  createdAt DateTime @default(now())
+  helper    User     @relation("rejectionReceived", fields: [helperId], references: [id])
+  request   Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  seeker    User     @relation("rejectionGiven", fields: [seekerId], references: [id])
+
+  @@unique([requestId, helperId])
+  @@index([requestId])
+  @@index([helperId])
+  @@index([seekerId])
+}
+
+model HelperProfile {
+  userId         String      @id
+  averageRating  Float?      @default(0)
+  additionalInfo String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  expertise      Expertise[]
+  feedbacks      Feedback[]
+  user           User        @relation(fields: [userId], references: [id])
+}
+
+model SeekerProfile {
+  userId         String     @id
+  averageRating  Float?     @default(0)
+  additionalInfo String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  feedbacks      Feedback[]
+  user           User       @relation(fields: [userId], references: [id])
+}
+
+model Expertise {
+  id          String        @id @default(uuid())
+  helperId    String
+  skillName   String
+  description String?
+  helper      HelperProfile @relation(fields: [helperId], references: [userId])
+
+  @@index([helperId])
+}
+
+model Rating {
+  id            String              @id @default(uuid())
+  ratingValue   Int                 @db.SmallInt
+  comment       String?
+  createdAt     DateTime            @default(now())
+  fromUserId    String
+  toUserId      String
+  transactionId String?
+  fromUser      User                @relation("ratingGiven", fields: [fromUserId], references: [id])
+  toUser        User                @relation("ratingReceived", fields: [toUserId], references: [id])
+  transaction   ServiceTransaction? @relation("transactionRatings", fields: [transactionId], references: [id])
+
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([transactionId])
+}
+
+model Feedback {
+  id              String         @id @default(uuid())
+  content         String
+  rating          Int?           @db.SmallInt
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  helperProfileId String?
+  seekerProfileId String?
+  helperProfile   HelperProfile? @relation(fields: [helperProfileId], references: [userId])
+  seekerProfile   SeekerProfile? @relation(fields: [seekerProfileId], references: [userId])
+
+  @@index([helperProfileId])
+  @@index([seekerProfileId])
+}
+
+model UserLocation {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  latitude  Float
+  longitude Float
+  isEnabled Boolean  @default(true)
+  updatedAt DateTime @default(now()) @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isEnabled])
+}
+
+model ConversationLocationSharing {
+  id             String       @id @default(uuid())
+  conversationId String
+  userId         String
+  latitude       Float?
+  longitude      Float?
+  accuracy       Float?
+  isSharing      Boolean      @default(false)
+  sharedAt       DateTime?
+  stoppedAt      DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([conversationId])
+  @@index([userId])
+  @@index([isSharing])
+}
+
+model Bargain {
+  id             String         @id @default(uuid())
+  conversationId String
+  currentAmount  Float
+  status         BargainStatus  @default(PENDING_HELPER_RESPONSE)
+  initiatedBy    String
+  helperApproved Boolean        @default(false)
+  seekerApproved Boolean        @default(false)
+  isConfirmed    Boolean        @default(false)
+  confirmedAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  conversation   Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  initiator      User           @relation("bargainInitiated", fields: [initiatedBy], references: [id])
+  offers         BargainOffer[]
+
+  @@index([conversationId])
+  @@index([initiatedBy])
+  @@index([status])
+}
+
+model BargainOffer {
+  id        String   @id @default(uuid())
+  bargainId String
+  amount    Float
+  offeredBy String
+  createdAt DateTime @default(now())
+  bargain   Bargain  @relation(fields: [bargainId], references: [id], onDelete: Cascade)
+  offerer   User     @relation("bargainOffered", fields: [offeredBy], references: [id])
+
+  @@index([bargainId])
+  @@index([offeredBy])
+  @@index([createdAt])
+}
+
+model ServiceTransaction {
+  id                     String        @id @default(uuid())
+  conversationId         String        @unique
+  amount                 Float
+  serviceStatus          ServiceStatus @default(ACTIVE)
+  paymentStatus          PaymentStatus @default(PENDING)
+  paymentMethod          String?
+  paymentRef             String?
+  seekerId               String
+  helperId               String
+  completedAt            DateTime?
+  completedBy            String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  bothFeedbacksCompleted Boolean       @default(false)
+  helperFeedbackAt       DateTime?
+  helperFeedbackProvided Boolean       @default(false)
+  seekerFeedbackAt       DateTime?
+  seekerFeedbackProvided Boolean       @default(false)
+  ratings                Rating[]      @relation("transactionRatings")
+  conversation           Conversation  @relation(fields: [conversationId], references: [id])
+  helper                 User          @relation("helperTransactions", fields: [helperId], references: [id])
+  seeker                 User          @relation("seekerTransactions", fields: [seekerId], references: [id])
+
+  @@index([conversationId])
+  @@index([seekerId])
+  @@index([helperId])
+  @@index([seekerFeedbackProvided])
+  @@index([helperFeedbackProvided])
+  @@index([bothFeedbacksCompleted])
+  @@index([serviceStatus])
+  @@index([paymentStatus])
+}
+
+enum RequestStatus {
+  OPEN
+  UNDER_REVIEW
+  BARGAINING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  CLOSED
+}
+
+enum InterestStatus {
+  PENDING
+  REVIEWING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum BargainStatus {
+  PENDING_HELPER_RESPONSE
+  PENDING_SEEKER_RESPONSE
+  AGREED
+  CONFIRMED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum ServiceStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
