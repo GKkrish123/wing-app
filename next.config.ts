@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 import("./src/env.js");
 
 const nextConfig: NextConfig = {
-  // output: 'export',
+  output: "standalone",
   trailingSlash: false,
   images: {
     unoptimized: true
