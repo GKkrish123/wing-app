@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { App } from '@capacitor/app'
 
 export type Platform = 'web' | 'ios' | 'android' | 'unknown'
 
@@ -33,12 +34,29 @@ export function usePlatform(): Platform {
     setPlatform(detectPlatform())
   }, [])
 
-  return platform
-}
+  useEffect(() => {
+    if (platform === 'web') return;
 
-export function useIsMobile(): boolean {
-  const platform = usePlatform()
-  return platform === 'ios' || platform === 'android'
+    let listener: any;
+    const setupListeners = async () => {
+      listener = await App.addListener("backButton", ({ canGoBack }) => {
+        if (canGoBack) {
+          window.history.back();
+        } else {
+          App.minimizeApp();
+        }
+      });
+    }
+    setupListeners();
+
+    return () => {
+      if (listener) {
+        listener.remove();
+      }
+    }
+  }, [platform]);
+
+  return platform
 }
 
 export function useIsNative(): boolean {
