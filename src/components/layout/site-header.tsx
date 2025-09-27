@@ -57,7 +57,7 @@ export function SiteHeader() {
   // Create breadcrumb based on current path
   const getBreadcrumbs = () => {
     const segments = pathname.split('/').filter(Boolean)
-    const breadcrumbs = []
+    const breadcrumbs: any[] = []
     
     if (segments.length > 1) {
       breadcrumbs.push({ label: "Dashboard", href: "/dashboard" })
