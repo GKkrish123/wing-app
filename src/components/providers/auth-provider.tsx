@@ -150,7 +150,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (userData) {
       initializePushNotifications();
     }
-  }, [userData, initializePushNotifications]);
+  }, [userData]);
 
   useEffect(() => {
     handleOnboarding();

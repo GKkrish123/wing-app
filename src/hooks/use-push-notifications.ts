@@ -86,7 +86,7 @@ export function usePushNotifications() {
 
     setupListeners();
     setIsInitialized(true);
-  }, [isInitialized, updatePushToken, platform]);
+  }, [isInitialized, platform]);
 
   return { initialize };
 }
