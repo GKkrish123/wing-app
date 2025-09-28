@@ -39,7 +39,13 @@ export async function updateSession(request: NextRequest) {
   // await supabase.auth.getUser();
   const { data } = await supabase.auth.getUser();  
   const isLoginPage = pathname === "/login";
+  const isAuthCallback = pathname === "/auth/callback";
+  const isAuthErrorPage = pathname === "/auth/auth-code-error";
   const user = data.user;
+
+  if (isAuthCallback || isAuthErrorPage) {
+    return supabaseResponse;
+  }
 
   if (!user && !isLoginPage) {
     return NextResponse.redirect(`${origin}/login`);
