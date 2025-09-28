@@ -73,7 +73,6 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
         toast.error("Error signing in with Google.")
         return
       }
-      toast.success("Successfully logged in with Google!")
     } catch (error) {
       toast.error("An unexpected error occurred. Please try again.")
       console.error("Google login error:", error)
