@@ -6,6 +6,8 @@ import { supabaseBrowser } from "@/util/supabase/browser"
 import { clientApi } from "@/trpc/react"
 import { toast } from "sonner"
 import { useAuth } from "@/components/providers/auth-provider"
+import { Geolocation } from "@capacitor/geolocation"
+import { useIsNative } from "./use-platform"
 
 interface LocationState {
   latitude?: number
@@ -45,6 +47,8 @@ export function useRealtimeLocation(options: UseRealtimeLocationOptions = {}) {
     updateInterval = 30000, // 30 seconds - real-time tracking
     autoUpdate = true,
   } = options
+
+  const isNative = useIsNative()
 
   const [location, setLocation] = useState<LocationState>({
     latitude: undefined,
@@ -108,7 +112,7 @@ export function useRealtimeLocation(options: UseRealtimeLocationOptions = {}) {
   }, [mutateAsync])
 
   // Helper function to calculate distance between two points in kilometers
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const calculateDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const R = 6371; // Earth's radius in kilometers
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -118,78 +122,109 @@ export function useRealtimeLocation(options: UseRealtimeLocationOptions = {}) {
       Math.sin(dLon/2) * Math.sin(dLon/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
-  }
+  }, [])
 
   // Get current position
-  const getCurrentPosition = useCallback(() => {
-    if (!navigator.geolocation) {
-      setLocation(prev => ({
-        ...prev,
-        error: "Geolocation is not supported by this browser",
-        isLoading: false,
-      }))
-      return
-    }
-
+  const getCurrentPosition = useCallback(async () => {
     setLocation(prev => ({ ...prev, isLoading: true, error: null }))
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude, accuracy } = position.coords
-        setLocation(prev => {
-          const now = new Date()
-          const isSignificantChange = !prev.latitude || !prev.longitude || 
-            calculateDistance(latitude, longitude, prev.latitude, prev.longitude) >= 0.05
-          
-          // Update location in database only if there's a significant change
-          if (isSignificantChange) {
-            updateLocationInDB(latitude, longitude, prev.latitude, prev.longitude)
-          }
-          
-          return {
-            ...prev,
-            latitude,
-            longitude,
-            accuracy,
-            isEnabled: true,
-            isLoading: false,
-            error: null,
-            lastUpdated: now,
-            isLiveLocation: true,
-          }
+    try {
+      let position: GeolocationPosition | any
+
+      if (isNative) {
+        // Use Capacitor Geolocation for native apps
+        const coordinates = await Geolocation.getCurrentPosition({
+          enableHighAccuracy,
+          timeout,
         })
-      },
-      (error) => {
-        let errorMessage = "Unknown error occurred"
-        
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = "Location access denied by user"
-            break
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location information is unavailable"
-            break
-          case error.TIMEOUT:
-            errorMessage = "Location request timed out"
-            break
+        position = {
+          coords: {
+            latitude: coordinates.coords.latitude,
+            longitude: coordinates.coords.longitude,
+            accuracy: coordinates.coords.accuracy,
+          }
+        }
+      } else {
+        // Use browser geolocation for web
+        if (!navigator.geolocation) {
+          throw new Error("Geolocation is not supported by this browser")
         }
 
-        setLocation(prev => ({
-          ...prev,
-          error: errorMessage,
-          isLoading: false,
-          isEnabled: false,
-        }))
-
-        toast.error(errorMessage)
-      },
-      {
-        enableHighAccuracy,
-        timeout,
-        maximumAge,
+        position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy,
+            timeout,
+            maximumAge,
+          })
+        })
       }
-    )
-  }, [enableHighAccuracy, timeout, maximumAge, updateLocationInDB])
+
+      const { latitude, longitude, accuracy } = position.coords
+      setLocation(prev => {
+        const now = new Date()
+        const isSignificantChange = !prev.latitude || !prev.longitude || 
+          calculateDistance(latitude, longitude, prev.latitude, prev.longitude) >= 0.05
+        
+        // Update location in database only if there's a significant change
+        if (isSignificantChange) {
+          updateLocationInDB(latitude, longitude, prev.latitude, prev.longitude)
+        }
+        
+        return {
+          ...prev,
+          latitude,
+          longitude,
+          accuracy,
+          isEnabled: true,
+          isLoading: false,
+          error: null,
+          lastUpdated: now,
+          isLiveLocation: true,
+        }
+      })
+    } catch (error: any) {
+      let errorMessage = "Unknown error occurred"
+      
+      if (isNative) {
+        // Handle Capacitor errors
+        if (error.message?.includes('permission')) {
+          errorMessage = "Location permission denied"
+        } else if (error.message?.includes('unavailable')) {
+          errorMessage = "Location information is unavailable"
+        } else if (error.message?.includes('timeout')) {
+          errorMessage = "Location request timed out"
+        } else {
+          errorMessage = error.message || "Failed to get location"
+        }
+      } else {
+        // Handle browser geolocation errors
+        if (error.code) {
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage = "Location access denied by user"
+              break
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = "Location information is unavailable"
+              break
+            case error.TIMEOUT:
+              errorMessage = "Location request timed out"
+              break
+          }
+        } else {
+          errorMessage = error.message || "Failed to get location"
+        }
+      }
+      
+      setLocation(prev => ({
+        ...prev,
+        error: errorMessage,
+        isLoading: false,
+        isEnabled: false,
+      }))
+
+      toast.error(errorMessage)
+    }
+  }, [enableHighAccuracy, timeout, maximumAge, updateLocationInDB, isNative, calculateDistance])
 
   // Subscribe to real-time location updates
   const subscribeToLocationUpdates = useCallback(() => {
@@ -245,9 +280,51 @@ export function useRealtimeLocation(options: UseRealtimeLocationOptions = {}) {
   }, [channel])
 
   // Request location permission
-  const requestLocationPermission = useCallback(() => {
-    getCurrentPosition()
-  }, [getCurrentPosition])
+  const requestLocationPermission = useCallback(async () => {
+    try {
+      if (isNative) {
+        const permissions = await Geolocation.requestPermissions()
+        
+        if (permissions.location === 'granted') {
+          toast.success('Location permission granted!')
+          getCurrentPosition()
+        } else if (permissions.location === 'denied') {
+          toast.error('Location permission denied. Please enable it in your device settings.')
+          setLocation(prev => ({
+            ...prev,
+            error: 'Location permission denied',
+            isLoading: false
+          }))
+        } else {
+          toast.warning('Location permission not granted.')
+          setLocation(prev => ({
+            ...prev,
+            error: 'Location permission not granted',
+            isLoading: false
+          }))
+        }
+      } else {
+        if ('geolocation' in navigator) {
+          getCurrentPosition()
+        } else {
+          toast.error('Geolocation is not supported by this browser.')
+          setLocation(prev => ({
+            ...prev,
+            error: 'Geolocation not supported',
+            isLoading: false
+          }))
+        }
+      }
+    } catch (error) {
+      console.error('Error requesting location permission:', error)
+      toast.error('Failed to request location permission.')
+      setLocation(prev => ({
+        ...prev,
+        error: 'Failed to request location permission',
+        isLoading: false
+      }))
+    }
+  }, [getCurrentPosition, isNative])
 
   // Stop location tracking
   const stopLocationTracking = useCallback(() => {
