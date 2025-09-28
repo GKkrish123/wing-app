@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { App } from '@capacitor/app'
+import { Browser } from '@capacitor/browser'
 import { useRouter } from 'next/navigation'
 import { supabaseBrowser } from '@/util/supabase/browser'
 import { useIsNative } from './use-platform'
@@ -33,6 +34,13 @@ export function useDeepLinks() {
         
         if (authCode) {
           console.log('Auth code received, processing...')
+          
+          // Close the browser window
+          try {
+            await Browser.close()
+          } catch (e) {
+            console.log('Browser close error (expected):', e)
+          }
           
           // For Capacitor, we need to trigger the auth state change
           // The PKCE code verifier should be stored automatically by Supabase

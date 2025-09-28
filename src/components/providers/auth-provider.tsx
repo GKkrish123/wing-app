@@ -15,6 +15,7 @@ import { clientApi } from "@/trpc/react"
 import { usePushNotifications } from "@/hooks/use-push-notifications"
 import { useIsNative } from "@/hooks/use-platform"
 import { useDeepLinks } from "@/hooks/use-deep-links"
+import { Browser } from "@capacitor/browser"
 import { Loader2Icon } from "lucide-react"
 
 type AuthContextValue = {
@@ -145,16 +146,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return {}
       },
       signInWithGoogle: async () => {
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: isNative 
-              ? `com.wingapp.app://auth/callback`
-              : `${window.location.origin}/auth/callback`
+        if (isNative) {
+          try {
+            // Get the OAuth URL from Supabase
+            const { data, error } = await supabase.auth.signInWithOAuth({
+              provider: 'google',
+              options: {
+                redirectTo: `com.wingapp.app://auth/callback`,
+                skipBrowserRedirect: true // Don't auto-redirect, we'll handle it manually
+              }
+            })
+            
+            if (error) return { error: error.message }
+            
+            if (data?.url) {
+              // Open the OAuth URL in the in-app browser
+              await Browser.open({ 
+                url: data.url,
+                windowName: '_self'
+              })
+              return {}
+            }
+            
+            return { error: 'Failed to get OAuth URL' }
+          } catch (error) {
+            console.error('OAuth error:', error)
+            return { error: 'Failed to initiate OAuth flow' }
           }
-        })
-        if (error) return { error: error.message }
-        return {}
+        } else {
+          const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+              redirectTo: `${window.location.origin}/auth/callback`
+            }
+          })
+          if (error) return { error: error.message }
+          return {}
+        }
       },
       signOut: async () => {
         await supabase.auth.signOut()
