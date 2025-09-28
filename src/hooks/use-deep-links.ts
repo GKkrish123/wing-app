@@ -73,7 +73,7 @@ export function useDeepLinks() {
         console.log('App URL opened:', url)
         
         // Check if this is an auth callback
-        if (url.includes('auth/callback')) {
+        if (url.includes('auth/callback') || url.includes('localhost:3000')) {
           await handleAuthCallback(url)
         }
       })
@@ -82,10 +82,30 @@ export function useDeepLinks() {
       const appState = await App.getState()
       if (appState.isActive) {
         const launchUrl = await App.getLaunchUrl()
-        if (launchUrl?.url && launchUrl.url.includes('auth/callback')) {
+        if (launchUrl?.url && (launchUrl.url.includes('auth/callback') || launchUrl.url.includes('localhost:3000'))) {
           console.log('Launch URL contains auth callback:', launchUrl.url)
           await handleAuthCallback(launchUrl.url)
         }
+      }
+
+      // Also listen for URL changes in the browser window (for development)
+      if (typeof window !== 'undefined') {
+        const checkForAuthCode = () => {
+          const currentUrl = window.location.href
+          if (currentUrl.includes('code=') && currentUrl.includes('auth/callback')) {
+            console.log('Detected auth callback in browser URL:', currentUrl)
+            handleAuthCallback(currentUrl)
+          }
+        }
+
+        // Check immediately
+        checkForAuthCode()
+
+        // Also check periodically while the browser is open
+        const intervalId = setInterval(checkForAuthCode, 1000)
+        
+        // Clean up interval after 30 seconds
+        setTimeout(() => clearInterval(intervalId), 30000)
       }
     }
 

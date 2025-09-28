@@ -148,23 +148,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signInWithGoogle: async () => {
         if (isNative) {
           try {
+            console.log('Starting native OAuth flow...')
+            
+            // For development, use localhost; for production, use the custom scheme
+            const isDev = process.env.NODE_ENV === 'development'
+            const redirectUrl = isDev 
+              ? `http://localhost:3000/auth/callback` 
+              : `com.wingapp.app://auth/callback`
+            
+            console.log('Redirect URL:', redirectUrl)
+            
             // Get the OAuth URL from Supabase
             const { data, error } = await supabase.auth.signInWithOAuth({
               provider: 'google',
               options: {
-                redirectTo: `com.wingapp.app://auth/callback`,
-                skipBrowserRedirect: true // Don't auto-redirect, we'll handle it manually
+                redirectTo: redirectUrl,
+                skipBrowserRedirect: true
               }
             })
             
-            if (error) return { error: error.message }
+            if (error) {
+              console.error('OAuth URL generation error:', error)
+              return { error: error.message }
+            }
             
             if (data?.url) {
+              console.log('Opening OAuth URL:', data.url)
               // Open the OAuth URL in the in-app browser
               await Browser.open({ 
                 url: data.url,
                 windowName: '_self'
               })
+              
+              // Add a listener to detect when the browser finishes (closes)
+              const listener = await Browser.addListener('browserFinished', async () => {
+                console.log('Browser finished/closed')
+                listener.remove()
+                
+                // Give Supabase time to process the auth callback
+                setTimeout(async () => {
+                  const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+                  
+                  if (!sessionError && sessionData.session) {
+                    console.log('Authentication successful!')
+                    router.replace('/dashboard')
+                  } else {
+                    console.log('No session found after OAuth, checking for error...')
+                    // Don't automatically redirect to error - user might have cancelled
+                  }
+                }, 2000)
+              })
+              
               return {}
             }
             
@@ -189,14 +223,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       getAccessToken: () => session?.access_token ?? null,
     }),
-    [session, loading, userData, userDataLoading, supabase, isNative]
+    [session, loading, userData, userDataLoading, supabase, isNative, router]
   )
 
   useEffect(() => {
     if (userData) {
       initializePushNotifications();
     }
-  }, [userData]);
+  }, [userData, initializePushNotifications]);
 
   useEffect(() => {
     handleOnboarding();
