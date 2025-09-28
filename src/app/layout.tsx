@@ -7,7 +7,7 @@ import { AuthProvider } from "@/components/providers/auth-provider";
 import { LocationProvider } from "@/components/providers/location-provider";
 import { Toaster } from "sonner";
 import { TRPCReactProvider } from "@/trpc/react";
-import { PageLoader } from "@/components/loading";
+import { PageLoader } from "@/components/ui/enhanced-loader";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

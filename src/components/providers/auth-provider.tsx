@@ -8,11 +8,13 @@ import {
   useEffect,
   useCallback,
 } from "react"
-import { type Session, type User } from "@supabase/supabase-js"
+import { type Session } from "@supabase/supabase-js"
 import { usePathname, useRouter } from "next/navigation"
 import { supabaseBrowser } from "@/util/supabase/browser"
 import { clientApi } from "@/trpc/react"
 import { usePushNotifications } from "@/hooks/use-push-notifications"
+import { useIsNative } from "@/hooks/use-platform"
+import { useDeepLinks } from "@/hooks/use-deep-links"
 import { Loader2Icon } from "lucide-react"
 
 type AuthContextValue = {
@@ -37,10 +39,13 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  const isNative = useIsNative()
   const supabase = useMemo(() => supabaseBrowser(), [])
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const { initialize: initializePushNotifications } = usePushNotifications()
+  
+  useDeepLinks()
 
   const {
     data: userData,
@@ -143,7 +148,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: `${window.location.origin}/auth/callback`
+            redirectTo: isNative 
+              ? `com.wingapp.app://auth/callback`
+              : `${window.location.origin}/auth/callback`
           }
         })
         if (error) return { error: error.message }
@@ -154,7 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       getAccessToken: () => session?.access_token ?? null,
     }),
-    [session, loading, userData, userDataLoading, supabase]
+    [session, loading, userData, userDataLoading, supabase, isNative]
   )
 
   useEffect(() => {

@@ -2,8 +2,11 @@
 
 import { useAuth } from "@/components/providers/auth-provider"
 import { clientApi } from "@/trpc/react"
+import { motion } from "framer-motion"
+import { AnimatedCard, AnimatedCardContent, AnimatedCardHeader, AnimatedCardTitle } from "@/components/ui/animated-card"
+import { StaggeredAnimation, FadeIn } from "@/components/ui/page-transition"
+import { MapPin, Users, MessageCircle, AlertTriangle, Sparkles, TrendingUp } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { MapPin, Users, MessageCircle, AlertTriangle } from "lucide-react"
 import { ContentLoader } from "@/components/loading"
 
 export function DashboardStats() {
@@ -19,76 +22,180 @@ export function DashboardStats() {
   const totalPendingFeedbacks = (pendingFeedbacks?.asSeeker?.length || 0) + (pendingFeedbacks?.asHelper?.length || 0)
 
   return (
-    <>
-      {/* Welcome Section */}
-      <div>
-        <h1 className="text-3xl font-bold">Welcome back, {userData.name}!</h1>
-        <p className="text-muted-foreground">
-          Here&apos;s what&apos;s happening with your Wing account today.
-        </p>
-      </div>
+    <div className="space-y-8">
+      {/* Enhanced Welcome Section */}
+      <FadeIn delay={0.1}>
+        <div className="relative">
+          <motion.div
+            className="absolute -top-2 -left-2 w-6 h-6 bg-gradient-to-r from-primary to-secondary rounded-full opacity-20"
+            animate={{ scale: [1, 1.2, 1], rotate: [0, 180, 360] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <div className="space-y-2">
+            <motion.h1 
+              className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-foreground via-primary to-foreground bg-clip-text text-transparent"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              Welcome back, {userData.name}! 
+              <motion.span
+                className="inline-block ml-2"
+                animate={{ rotate: [0, 14, -8, 14, -4, 10, 0] }}
+                transition={{ duration: 2.5, repeat: Infinity, delay: 1 }}
+              >
+                👋
+              </motion.span>
+            </motion.h1>
+            <motion.p 
+              className="text-lg text-muted-foreground max-w-2xl"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+            >
+              Here&apos;s your personalized dashboard with everything happening in your Wing world today.
+            </motion.p>
+          </div>
+        </div>
+      </FadeIn>
 
-      {/* Quick Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Current Role</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+      {/* Enhanced Quick Stats */}
+      <StaggeredAnimation staggerDelay={0.1} className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <AnimatedCard 
+          variant="gradient" 
+          className="hover-lift group cursor-pointer border-0"
+          delay={0}
+        >
+          <AnimatedCardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <AnimatedCardTitle className="text-sm font-medium text-card-foreground/80">Current Role</AnimatedCardTitle>
+            <motion.div
+              whileHover={{ scale: 1.1, rotate: 5 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            >
+              <Users className="h-5 w-5 text-primary" />
+            </motion.div>
+          </AnimatedCardHeader>
+          <AnimatedCardContent>
+            <motion.div 
+              className="text-3xl font-bold text-card-foreground mb-1"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 200, delay: 0.3 }}
+            >
               {userData.currentRole === "HELPER" ? "Helper" : 
                userData.currentRole === "SEEKER" ? "Seeker" : "Not Set"}
-            </div>
-            <p className="text-xs text-muted-foreground">
+            </motion.div>
+            <p className="text-sm text-card-foreground/70">
               {userData.isHelper && userData.isSeeker ? "Can switch between both" : "Active mode"}
             </p>
-          </CardContent>
-        </Card>
+          </AnimatedCardContent>
+        </AnimatedCard>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Location</CardTitle>
-            <MapPin className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {userData.primaryLocation ? "Set" : "Not Set"}
-            </div>
-            <p className="text-xs text-muted-foreground">
+        <AnimatedCard 
+          variant="gradient" 
+          className="hover-lift group cursor-pointer border-0"
+          delay={1}
+        >
+          <AnimatedCardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <AnimatedCardTitle className="text-sm font-medium text-card-foreground/80">Location Status</AnimatedCardTitle>
+            <motion.div
+              whileHover={{ scale: 1.1 }}
+              animate={{ y: [0, -2, 0] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <MapPin className="h-5 w-5 text-secondary" />
+            </motion.div>
+          </AnimatedCardHeader>
+          <AnimatedCardContent>
+            <motion.div 
+              className="text-3xl font-bold text-card-foreground mb-1"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 200, delay: 0.4 }}
+            >
+              {userData.primaryLocation ? "Active" : "Pending"}
+            </motion.div>
+            <p className="text-sm text-card-foreground/70 truncate">
               {userData.primaryLocation || "Update your location"}
             </p>
-          </CardContent>
-        </Card>
+          </AnimatedCardContent>
+        </AnimatedCard>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Conversations</CardTitle>
-            <MessageCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">0</div>
-            <p className="text-xs text-muted-foreground">
-              Active chats
+        <AnimatedCard 
+          variant="gradient" 
+          className="hover-lift group cursor-pointer border-0"
+          delay={2}
+        >
+          <AnimatedCardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <AnimatedCardTitle className="text-sm font-medium text-card-foreground/80">Active Chats</AnimatedCardTitle>
+            <motion.div
+              whileHover={{ scale: 1.1 }}
+              animate={{ rotate: [0, 5, -5, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <MessageCircle className="h-5 w-5 text-accent" />
+            </motion.div>
+          </AnimatedCardHeader>
+          <AnimatedCardContent>
+            <motion.div 
+              className="text-3xl font-bold text-card-foreground mb-1"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 200, delay: 0.5 }}
+            >
+              0
+            </motion.div>
+            <p className="text-sm text-card-foreground/70">
+              Conversations
             </p>
-          </CardContent>
-        </Card>
+          </AnimatedCardContent>
+        </AnimatedCard>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Feedbacks</CardTitle>
-            <AlertTriangle className={`h-4 w-4 ${totalPendingFeedbacks > 0 ? 'text-amber-600' : 'text-muted-foreground'}`} />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${totalPendingFeedbacks > 0 ? 'text-amber-600' : ''}`}>
+        <AnimatedCard 
+          variant="gradient"
+          className="hover-lift group cursor-pointer border-0 relative overflow-hidden"
+          delay={3}
+        >
+          {totalPendingFeedbacks > 0 && (
+            <motion.div
+              className="absolute top-2 right-2 w-3 h-3 bg-destructive rounded-full"
+              animate={{ scale: [1, 1.2, 1], opacity: [1, 0.7, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            />
+          )}
+          <AnimatedCardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <AnimatedCardTitle className="text-sm font-medium text-card-foreground/80">Pending Items</AnimatedCardTitle>
+            <motion.div
+              whileHover={{ scale: 1.1 }}
+              animate={totalPendingFeedbacks > 0 ? { 
+                rotate: [0, -5, 5, 0],
+                scale: [1, 1.05, 1] 
+              } : {}}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <AlertTriangle className={`h-5 w-5 ${totalPendingFeedbacks > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
+            </motion.div>
+          </AnimatedCardHeader>
+          <AnimatedCardContent>
+            <motion.div 
+              className="text-3xl font-bold text-card-foreground mb-1"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 200, delay: 0.6 }}
+            >
               {totalPendingFeedbacks}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {totalPendingFeedbacks > 0 ? 'Feedback required' : 'All feedback provided'}
+            </motion.div>
+            <p className="text-sm text-card-foreground/70">
+              {totalPendingFeedbacks === 0 ? (
+                <span className="flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  All caught up!
+                </span>
+              ) : "Need your feedback"}
             </p>
-          </CardContent>
-        </Card>
-      </div>
-    </>
+          </AnimatedCardContent>
+        </AnimatedCard>
+      </StaggeredAnimation>
+    </div>
   )
 }
