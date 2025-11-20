@@ -304,15 +304,45 @@ export function useRealtimeLocation(options: UseRealtimeLocationOptions = {}) {
           }))
         }
       } else {
-        if ('geolocation' in navigator) {
-          getCurrentPosition()
-        } else {
+        // For mobile browsers, we need to handle permissions differently
+        if (!('geolocation' in navigator)) {
           toast.error('Geolocation is not supported by this browser.')
           setLocation(prev => ({
             ...prev,
             error: 'Geolocation not supported',
             isLoading: false
           }))
+          return
+        }
+
+        // Check if Permissions API is available to query permission state
+        if (navigator.permissions && navigator.permissions.query) {
+          try {
+            const permissionStatus = await navigator.permissions.query({ name: 'geolocation' })
+            
+            if (permissionStatus.state === 'denied') {
+              toast.error('Location permission denied. Please enable it in your browser settings.')
+              setLocation(prev => ({
+                ...prev,
+                error: 'Location permission denied',
+                isLoading: false
+              }))
+              return
+            }
+            
+            // Permission is granted or prompt - proceed with getting location
+            await getCurrentPosition()
+            
+          } catch (permError) {
+            // Permissions API might not be supported (iOS Safari) or query might fail
+            // Fall back to directly requesting location
+            console.log('Permissions API not available, requesting location directly:', permError)
+            await getCurrentPosition()
+          }
+        } else {
+          // Permissions API not available (e.g., iOS Safari)
+          // Directly request location - this will trigger the browser's permission prompt
+          await getCurrentPosition()
         }
       }
     } catch (error) {
